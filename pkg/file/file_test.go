@@ -1,44 +1,44 @@
 package file
 
 import (
-  "os"
-  "io/ioutil"
+	"io/ioutil"
+	"os"
 	"testing"
 )
 
 func TestIsRealFileTrue(t *testing.T) {
-  f, _ := ioutil.TempFile("/tmp", "godumpfs")
-  defer os.Remove(f.Name())
-  r, _ := IsRealFile(f.Name())
-  if r != true {
-    t.Errorf("%b is not True", r)
-  }
+	f, _ := ioutil.TempFile("/tmp", "godumpfs")
+	defer os.Remove(f.Name())
+	r, _ := IsRealFile(f.Name())
+	if r != true {
+		t.Errorf("%v is not True", r)
+	}
 }
 
 func TestIsRealFileFalse(t *testing.T) {
-  r, _ := IsRealFile("/tmp/pokemon/pikachu")
-  if r != false {
-    t.Errorf("%b is not False", r)
-  }
+	r, _ := IsRealFile("/tmp/pokemon/pikachu")
+	if r != false {
+		t.Errorf("%v is not False", r)
+	}
 }
 
 func TestIsRealFileCheckDirectory(t *testing.T) {
-  d, _ := ioutil.TempDir("/tmp", "godumpfs")
-  defer os.Remove(d)
-  r, _ := IsRealFile(d)
-  if r != false {
-    t.Errorf("%b is not False", r)
-  }
+	d, _ := ioutil.TempDir("/tmp", "godumpfs")
+	defer os.Remove(d)
+	r, _ := IsRealFile(d)
+	if r != false {
+		t.Errorf("%v is not False", r)
+	}
 }
 
 func TestIsRealFileCheckSymLink(t *testing.T) {
-  f, _ := ioutil.TempFile("/tmp", "godumpfs")
-  defer os.Remove(f.Name())
-  fSymLink := f.Name() + "-symlink"
-  os.Symlink(f.Name(), fSymLink)
-  defer os.Remove(fSymLink)
-  r, _ := IsRealFile(fSymLink)
-  if r != false {
-    t.Errorf("%b is not False", r)
-  }
+	f, _ := ioutil.TempFile("/tmp", "godumpfs")
+	defer os.Remove(f.Name())
+	fSymLink := f.Name() + "-symlink"
+	os.Symlink(f.Name(), fSymLink)
+	defer os.Remove(fSymLink)
+	r, _ := IsRealFile(fSymLink)
+	if r != false {
+		t.Errorf("%v is not False", r)
+	}
 }
