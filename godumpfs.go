@@ -1,10 +1,3 @@
-// @matcher  = (config[:matcher]  or NullMatcher.new)
-// @reporter = (config[:reporter] or lambda {|x| puts x })
-// @log_file = (config[:log_file] or nil)
-// @dry_run  = (config[:dry_run] or false)
-// @interval_proc = (config[:interval_proc] or lambda {})
-// @written_bytes = 0
-
 package godumpfs
 
 import (
@@ -12,11 +5,13 @@ import (
   "github.com/nec-openstack/godumpfs/pkg/file"
   "path"
   "path/filepath"
+  "sort"
   "strings"
+	"strconv"
   "time"
 )
 
-type GOdumpfs struct{ 
+type GOdumpfs struct{
 
 }
 
@@ -68,9 +63,60 @@ func (g *GOdumpfs) ValidateDirs(src string, dest string) error {
   return nil
 }
 
-func (g *GOdumpfs) latestSnapshot(startTime time.Time, src string, dest string, base string) (string, error) {
+type SnapshotNotFound struct {
+}
 
-  return "/home/inou/go/src/github.com/nec-openstack/godumpfs/fixtures/2017/06/21/base", nil
+func (e *SnapshotNotFound) Error() string {
+	return ""
+}
+
+type Dirs []string
+
+func (d Dirs) Len() int { return len(d)}
+
+func (d Dirs) Swap(i, j int) {
+	d[i], d[j] = d[j], d[i]
+}
+
+func (d Dirs) Less(i, j int) bool { return strings.Compare(d[i],  d[j])  < 0 }
+
+func (g *GOdumpfs) latestSnapshot(startTime time.Time, src string, dest string, base string) (string, error) {
+	dd := "[0-9][0-9]"
+	dddd := dd + dd
+	globPath := path.Join(dest, dddd, dd, dd)
+	dirs, err := filepath.Glob(globPath)
+	if err != nil {
+		return "", err
+	}
+	if dirs == nil {
+		return "", &SnapshotNotFound{}
+	}
+	sort.Sort(sort.Reverse(Dirs(dirs)))
+
+	for _, dir := range dirs {
+		p := path.Join(dir, base)
+		ps := strings.Split(dir, string(filepath.Separator))
+		l := len(ps)
+		y, _ := strconv.Atoi(ps[l-3])
+		m, _ := strconv.Atoi(ps[l-2])
+		d, _ := strconv.Atoi(ps[l-1])
+		t := time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.Local)
+		if y != t.Year() || time.Month(m) != t.Month() || d != t.Day() {
+		  // 日付じゃない
+			continue
+		}
+		if isDir, err := file.IsDir(p); err != nil || !isDir {
+			// ディレクトリじゃない
+			continue
+		}
+		// TODO 未来か?
+		if t.After(startTime) {
+			continue
+		}
+		return p, nil
+	}
+	
+  return "", &SnapshotNotFound{}
 }
 
 func (g *GOdumpfs) Start(src string, dest string, base string) error {
