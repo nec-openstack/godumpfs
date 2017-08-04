@@ -31,9 +31,6 @@ func TestLatestSnapshot(t *testing.T) {
 
 func TestStart(t *testing.T) {
 	g := &GOdumpfs{}
-<<<<<<< HEAD
-	g.Start("", "", "")
-=======
 	err := g.Start("/foo/bar", "/foo/bar/baz", "")
 	if err == nil {
 		t.Errorf("Start doesn't detects invalid state.")
@@ -78,5 +75,4 @@ func TestSubDirectory(t *testing.T) {
 	}
 
 	// TODO motto motto
->>>>>>> 9c3d5c9... implements some features
 }
