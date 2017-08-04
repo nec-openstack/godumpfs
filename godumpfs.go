@@ -3,11 +3,14 @@ package godumpfs
 import (
 	"fmt"
 	"github.com/nec-openstack/godumpfs/pkg/file"
+	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -49,7 +52,6 @@ func (g *GOdumpfs) ValidateDirs(src string, dest string) error {
 		return fmt.Errorf("no such directory %v", dest)
 	}
 
-	// are
 	if src == dest {
 		return fmt.Errorf("src and dest are same :%v", src)
 	}
@@ -118,10 +120,85 @@ func (g *GOdumpfs) latestSnapshot(startTime time.Time, src string, dest string, 
 	return "", &SnapshotNotFound{}
 }
 
+func (g *GOdumpfs) sameDirectory(src, dest string) (bool, error) {
+	src, err := filepath.Abs(src)
+	if err != nil {
+		// error message
+		return false, err
+	}
+	dest, err = filepath.Abs(dest)
+	if err != nil {
+		// error message
+		return false, err
+	}
+	return src == dest, nil
+}
+
+func (g *GOdumpfs) subDirectory(src, dest string) (bool, error) {
+	src, err := filepath.Abs(src)
+	if err != nil {
+		// error message
+		return false, err
+	}
+	dest, err = filepath.Abs(dest)
+	if err != nil {
+		// error message
+		return false, err
+	}
+
+	match, err := regexp.MatchString(string(filepath.Separator)+"$", src)
+	if err != nil {
+		// error message
+		return false, err
+	}
+	if !match {
+		src += string(filepath.Separator)
+	}
+
+	return regexp.MatchString("^"+regexp.QuoteMeta(src), dest)
+}
+
+func (g *GOdumpfs) datedir(date *time.Time) string {
+	s := string(filepath.Separator)
+	return fmt.Sprintf("%d%s%02d%s%02d", date.Year, s, date.Month, s, date.Day)
+}
+
 func (g *GOdumpfs) Start(src string, dest string, base string) error {
+	startTime := time.Now()
+	if same, err := g.sameDirectory(src, dest); same || err != nil {
+		return fmt.Errorf("cannot copy a directory, `%s', into itself, `%s'", src, dest)
+	}
+	if sub, err := g.subDirectory(src, dest); sub || err != nil {
+		return fmt.Errorf("cannot copy a directory, `%s', into itself, `%s'", src, dest)
+	}
+
+	if src != "/" {
+		re := regexp.MustCompile("/+$")
+		src = re.ReplaceAllString(src, "")
+	}
 	if len(base) == 0 {
 		base = path.Base(src)
 	}
+
+	latest, err := g.latestSnapshot(startTime, src, dest, base)
+	if err != nil {
+		if _, ok := err.(*SnapshotNotFound); !ok { // SnapShot not foundじゃないエラーの場合の意
+			return err
+		}
+	}
+	today := path.Join(dest, g.datedir(&startTime), base)
+
+	syscall.Umask(0077)
+	// TODO dry run
+	os.MkdirAll(today, 0700)
+	if err == nil {
+		// SnapShot 居る
+		// TODO g.UpdateSnapshot(src, latest, today)
+	} else {
+		// SnapShot 居いない
+		// TODO g.RecursiveCopy(src, today)
+	}
+	fmt.Println(latest) // TODO Delete
 
 	return nil
 }
